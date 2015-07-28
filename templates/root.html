@@ -9,6 +9,8 @@ var TEMPL = {
 
 var parser = new DOMParser();
 
+var EXCHANGE_RATE = 0.5; // FSU to USD
+
 function interp(s, values) {
 	for(prop in values) {
 		s = s.replace(new RegExp("\\$"+prop, "g"), values[prop]);
@@ -16,15 +18,18 @@ function interp(s, values) {
 	return s;
 }
 
-function update_accts(accts) {
+function update_accts(accts, full) {
 	list = document.querySelector("#accts");
+	aidset = {};
 	for(i=0; i<accts.length; i+=1) {
 		acct = accts[i];
+		aidset[acct.aid] = true;
 		found = false;
 		for(j=0; j<list.children.length; j+=1) {
 			child = list.children[j];
-			if(parseInt(child.dataset.aid, 10) < acct.aid) continue;
-			if(parseInt(child.dataset.aid, 10) == acct.aid) {
+			caid = parseInt(child.dataset.aid, 10);
+			if(caid < acct.aid) continue;
+			if(caid == acct.aid) {
 				if(child.dataset.name != acct.name || child.dataset.balance != acct.balance) {
 					child.querySelector('.name').textContent = acct.name;
 					child.querySelector('.balance').textContent = acct.balance;
@@ -42,6 +47,30 @@ function update_accts(accts) {
 			list.appendChild(make_elem(acct));
 		}
 	}
+	var sum = 0;
+	remset = [];
+	for(i=0; i<list.children.length; i+=1) {
+		child = list.children[i];
+		if(full && child.dataset.aid && !aidset[child.dataset.aid]) {
+			remset.push(child);
+			continue;
+		}
+		bal = parseFloat(child.dataset.balance);
+		if(isFinite(bal)) sum += bal;
+	}
+	for(i=0; i<remset.length; i++) {
+		list.removeChild(remset[i]);
+	}
+	sumline = document.querySelector("#sumline");
+	sumline.querySelector("#sum").textContent = sum.toFixed(2);
+	sumline.querySelector("#sumusd").textContent = (sum * EXCHANGE_RATE).toFixed(2);
+	if(sum < 0) {
+		sumline.querySelector("#sumsign").textContent = "debited to users";
+		sumline.className = "debit";
+	} else {
+		sumline.querySelector("#sumsign").textContent = "credited from users";
+		sumline.className = "credit";
+	}
 }
 
 function make_elem(acct) {
@@ -54,7 +83,7 @@ function make_elem(acct) {
 	return elem;
 }
 
-function xhr_rsc(xhr) {
+function xhr_rsc(xhr, full) {
 	if(xhr.readyState == 4) {
 		if(xhr.status != 200) {
 			if(xhr.statusText.length > 0) {
@@ -70,14 +99,14 @@ function xhr_rsc(xhr) {
 			return;
 		}
 		if(resp.accounts != null) {
-			update_accts(resp.accounts);
+			update_accts(resp.accounts, full);
 		}
 	}
 }
 
 function update_all() {
 	xhr = new XMLHttpRequest();
-	xhr.onreadystatechange = function() {xhr_rsc(xhr);};
+	xhr.onreadystatechange = function() {xhr_rsc(xhr, true);};
 	xhr.open("POST", "/get", true);
 	xhr.send(null);
 }
@@ -147,8 +176,13 @@ function do_rename(btn) {
 	xhr.send(fd);
 }
 
+function init() {
+	document.querySelector("#exchrate").textContent = EXCHANGE_RATE;
+	update_all();
+}
+
 setInterval(update_all, 2000);
-setTimeout(update_all, 100);
+setTimeout(init, 100);
 		</script>
 		<style type="text/css">
 body
@@ -167,7 +201,7 @@ h1
 	font-size: 400%;
 }
 
-h1, h5
+h1, h5, h6
 {
 	margin: 0 0;
 	text-align: center;
@@ -186,6 +220,21 @@ h3
 h5
 {
 	font-size: 150%;
+}
+
+h6
+{
+	font-size: 125%;
+}
+
+.credit
+{
+	color: #226622;
+}
+
+.debit
+{
+	color: #662222;
 }
 
 .exr
@@ -265,7 +314,7 @@ button[name="create"]
 	<body>
 		<h1>Mount Fsuvius</h1>
 		<h3>the Open Source Bank<span style="width: 100%; height: 1px; display: inline-block; border-top: 1px solid #440000;">&nbsp;</span></h3>
-		<h5>FSU Exchange Rate: <span class="exr">$0.50 = 1 FSU</span></h5>
+		<h5>FSU Exchange Rate: <span class="exr">$<span id="exchrate">???</span> = 1 FSU</span></h5>
 		<table id="accts">
 			<tr><td></td>
 				<td>
@@ -277,6 +326,7 @@ button[name="create"]
 			</tr>
 			<tr><th>ID</th><th>Name</th><th>Balance</th><th>Operations</th></tr>
 		</table>
+		<h6 id="sumline">Bank balance: <span id="sum">???</span> FSU ($<span id="sumusd">???</span>) <span id="sumsign"></span></h6>
 		<div id="errors"></div>
 	</body>
 </html>
