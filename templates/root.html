@@ -4,7 +4,7 @@
 		<title>Mount Fsuvius</title>
 		<script type="text/javascript">
 var TEMPL = {
-	"acct_pres": '<html><body><table><tr class="acct" data-aid="$aid" data-name="$name" data-balance="$balance"><td class="aid">$aid</td><td class="name">$name</td><td class="balance">$balance</td><td class="mod"><form method="POST" action="/mod"><input type="hidden" name="aid" value="$aid"/><button onclick="do_dock(this)" type="button" name="dock">Dock</button><input type="text" name="amt" value="1"/><button onclick="do_boost(this)" type="button" name="boost">Boost</button><button onclick="do_set(this)" type="button" name="set">Set</button><input type="text" name="name"/><button onclick="do_rename(this)" type="button" name="rename">Rename</button></form></td></tr></table></body></html>'
+	"acct_pres": '<html><body><table><tr class="acct"><td class="aid"></td><td class="name"></td><td class="balance"></td><td class="mod"><form method="POST" action="/mod"><input type="hidden" name="aid" value="$aid"/><button onclick="do_dock(this)" type="button" name="dock">Dock</button><input type="text" name="amt" value="1"/><button onclick="do_boost(this)" type="button" name="boost">Boost</button><button onclick="do_set(this)" type="button" name="set">Set</button><input type="text" name="name"/><button onclick="do_rename(this)" type="button" name="rename">Rename</button></form></td></tr></table></body></html>'
 };
 
 var parser = new DOMParser();
@@ -78,8 +78,11 @@ function make_elem(acct) {
 	elem = elem.querySelector('tr');
 	elem = document.adoptNode(elem);
 	elem.dataset.aid = acct.aid;
+	elem.querySelector('.aid').textContent = acct.aid;
 	elem.dataset.name = acct.name;
+	elem.querySelector('.name').textContent = acct.name;
 	elem.dataset.balance = acct.balance;
+	elem.querySelector('.balance').textContent = acct.balance;
 	return elem;
 }
 
@@ -189,6 +192,11 @@ body
 {
 	background-color: #c8ab6b;
 	font-size: 150%;
+}
+
+#accts tr:nth-child(2n+1)
+{
+	background-color: #c0a467;
 }
 
 h1, h5, #accts

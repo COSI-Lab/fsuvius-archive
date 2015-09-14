@@ -38,24 +38,24 @@ def check_priv():
 	if request.method == 'POST' and ALLOWED_SUBNET != (ALLOWED_MASK & host):
 		return jsonify(error={'code': ERR.ACCESS, 'reason': 'Modification not allowed from outside the %s subnet'%(ntoa(ALLOWED_SUBNET),)})
 
-@app.route('/mod', methods=['POST'])
-@app.route('/set', methods=['POST'])
+@app.route('/mod', methods=['POST', 'GET'])
+@app.route('/set', methods=['POST', 'GET'])
 def mod_set():
 	resp = check_priv()
 	if resp is not None:
 		return resp
 	try:
-		acct = Account.FromID(request.form['aid'])
+		acct = Account.FromID(request.values['aid'])
 	except DBError:
 		return jsonify(error={'code': ERR.NEXIST, 'reason': 'Bad user ID'})
 	try:
-		amt = float(request.form['amt'])
+		amt = float(request.values['amt'])
 	except ValueError:
 		return jsonify(error={'code': ERR.DOMAIN, 'reason': 'Amt not a number'})
-	if request.form.get('set', False) or request.path == '/set':
+	if request.values.get('set', False) or request.path == '/set':
 		acct.balance = amt
 	elif request.path == '/mod':
-		if request.form.get('dock', False):
+		if request.values.get('dock', False):
 			amt = -amt
 		acct.balance += amt
 	else:
@@ -63,28 +63,28 @@ def mod_set():
 	acct.Update(src = request.environ['REMOTE_ADDR'])
 	return jsonify(accounts=[as_acctobj(acct)])
 
-@app.route('/mv', methods=['POST'])
+@app.route('/mv', methods=['POST', 'GET'])
 def mv():
 	resp = check_priv()
 	if resp is not None:
 		return resp
 	try:
-		acct = Account.FromID(request.form['aid'])
+		acct = Account.FromID(request.values['aid'])
 	except DBError:
 		return jsonify(error={'code': ERR.NEXIST, 'reason': 'Bad user ID'})
-	acct.name = request.form['name']
+	acct.name = request.values['name']
 	acct.Update(src = request.environ['REMOTE_ADDR'])
 	return jsonify(accoutns=[as_acctobj(acct)])
 
-@app.route('/new', methods=['POST'])
+@app.route('/new', methods=['POST', 'GET'])
 def new():
 	resp = check_priv()
 	if resp is not None:
 		return resp
-	acct = Account.Create(request.form['name'], 0, src = request.environ['REMOTE_ADDR'])
+	acct = Account.Create(request.values['name'], 0, src = request.environ['REMOTE_ADDR'])
 	return jsonify(accounts=[as_acctobj(acct)])
 
-@app.route('/get', methods=['POST'])
+@app.route('/get', methods=['POST', 'GET'])
 def get():
 	accts = Account.All()
 	return jsonify(accounts=[as_acctobj(i) for i in accts])
