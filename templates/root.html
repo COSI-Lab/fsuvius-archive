@@ -18,6 +18,64 @@ function interp(s, values) {
 	return s;
 }
 
+function html_quote(str, inner) {
+	str = str.replace("&", "&amp;", "g").replace("<", "&lt;", "g").replace(">", "&gt;", "g");
+	if(inner) {
+		str = str.replace('"', "&quot;", "g");
+	}
+	return str;
+}
+
+function repl_special(match, sname, svalue) {
+	if(sname.toUpperCase() == "IMG") {
+		var parts = svalue.split(",", 2);
+		if(parts.length < 2) {
+			parts = [parts[0], "height: 48px; max-width: 256px"];
+		}
+		parts[0] = encodeURI(parts[0]);
+		parts[1] = html_quote(parts[1]);
+		return '<img style="'+parts[1]+'" alt="'+parts[0]+'" src="'+parts[0]+'"/>';
+	}
+	if(sname.toUpperCase() == "URL") {
+		var parts = svalue.split(",", 2);
+		if(parts.length < 2) {
+			return match;
+		}
+		return '<a href="'+encodeURI(parts[0])+'">'+html_quote(parts[1])+'</a>';
+	}
+	if(sname.toUpperCase() == "STYLE") {
+		var parts = svalue.split(",", 3);
+		if(parts.length < 3) {
+			return match;
+		}
+		return '<span style="'+html_quote(parts[0], true)+'" class="'+html_quote(parts[1], true)+'">'+html_quote(parts[2])+'</span>';
+	}
+	if(sname.toUpperCase() == "BR") {
+		return "<br/>";
+	}
+	if(sname.toUpperCase() == "IFRAME") {
+		var parts = svalue.split(",", 2);
+		if(parts.length < 2) {
+			parts = [parts[0], ""];
+		}
+		parts[0] = encodeURI(parts[0]);
+		parts[1] = html_quote(parts[1]);
+		return '<iframe src="'+parts[0]+'" style="'+parts[1]+'"></iframe>';
+	}
+	return match;
+}
+
+function safe_name(name) {
+	try {
+		name = html_quote(name);
+		// Special functions
+		if(location.pathname != "/lite") name = name.replace(/\[(\w+)=([^\]]*)\]/g, repl_special);
+	} catch(err) {
+		name = '<span class="error">Error occured while producing this content</span>';
+	}
+	return name;
+}
+
 function update_accts(accts, full) {
 	list = document.querySelector("#accts");
 	aidset = {};
@@ -31,7 +89,7 @@ function update_accts(accts, full) {
 			if(caid < acct.aid) continue;
 			if(caid == acct.aid) {
 				if(child.dataset.name != acct.name || child.dataset.balance != acct.balance) {
-					child.querySelector('.name').textContent = acct.name;
+					child.querySelector('.name').innerHTML = safe_name(acct.name);
 					child.querySelector('.balance').textContent = acct.balance;
 					child.dataset.name = acct.name;
 					child.dataset.balance = acct.balance;
@@ -71,6 +129,14 @@ function update_accts(accts, full) {
 		sumline.querySelector("#sumsign").textContent = "credited from users";
 		sumline.className = "credit";
 	}
+	var balances = document.getElementsByClassName("balance");
+	for (var i = 0; i < balances.length; i++) {
+		if(parseFloat(balances[i].innerHTML) < 0) {
+			balances[i].setAttribute("class", "balance debit");
+		} else {
+			balances[i].setAttribute("class", "balance credit");
+		}
+	}
 }
 
 function make_elem(acct) {
@@ -80,7 +146,7 @@ function make_elem(acct) {
 	elem.dataset.aid = acct.aid;
 	elem.querySelector('.aid').textContent = acct.aid;
 	elem.dataset.name = acct.name;
-	elem.querySelector('.name').textContent = acct.name;
+	elem.querySelector('.name').innerHTML = safe_name(acct.name);
 	elem.dataset.balance = acct.balance;
 	elem.querySelector('.balance').textContent = acct.balance;
 	return elem;
@@ -188,6 +254,24 @@ setInterval(update_all, 2000);
 setTimeout(init, 100);
 		</script>
 		<style type="text/css">
+@keyframes rainbow
+{
+	0% {color: #ff0000;}
+	16% {color: #ffff00;}
+	33% {color: #00ff00;}
+	50% {color: #00ffff;}
+	67% {color: #0000ff;}
+	84% {color: #ff00ff;}
+	100% {color: #ff0000;}
+}
+
+.rainbow
+{
+	animation-name: rainbow;
+	animation-duration: 1s;
+	animation-iteration-count: infinite;
+}
+
 body
 {
 	background-color: #c8ab6b;
@@ -243,6 +327,7 @@ h6
 .debit
 {
 	color: #662222;
+	font-weight: bold;
 }
 
 .exr
@@ -279,7 +364,6 @@ h6
 .balance
 {
 	font-weight: bold;
-	color: #448844;
 }
 
 input[type="text"]
@@ -321,7 +405,7 @@ button[name="create"]
 	</head>
 	<body>
 		<h1>Mount Fsuvius</h1>
-		<h3>the Open Source Bank<span style="width: 100%; height: 1px; display: inline-block; border-top: 1px solid #440000;">&nbsp;</span></h3>
+		<h3>the <a href="http://web2.clarkson.edu/projects/cosi/sp2015/students/northug/winner.html">Open</a> <a href="https://github.com/COSI-Lab/fsuvius">Source</a> Bank<span style="width: 100%; height: 1px; display: inline-block; border-top: 1px solid #440000;">&nbsp;</span></h3>
 		<h5>FSU Exchange Rate: <span class="exr">$<span id="exchrate">???</span> = 1 FSU</span></h5>
 		<table id="accts">
 			<tr><td></td>

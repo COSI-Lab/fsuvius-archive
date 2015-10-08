@@ -33,6 +33,10 @@ def as_acctobj(acct):
 def root():
 	return render_template('root.html')
 
+@app.route('/lite')
+def lite():
+	return render_template('root.html')
+
 def check_priv():
 	host = aton(request.environ['REMOTE_ADDR'])
 	if request.method == 'POST' and ALLOWED_SUBNET != (ALLOWED_MASK & host):
