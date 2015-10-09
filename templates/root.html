@@ -4,12 +4,15 @@
 		<title>Mount Fsuvius</title>
 		<script type="text/javascript">
 var TEMPL = {
-	"acct_pres": '<html><body><table><tr class="acct"><td class="aid"></td><td class="name"></td><td class="balance"></td><td class="mod"><form method="POST" action="/mod"><input type="hidden" name="aid" value="$aid"/><button onclick="do_dock(this)" type="button" name="dock">Dock</button><input type="text" name="amt" value="1"/><button onclick="do_boost(this)" type="button" name="boost">Boost</button><button onclick="do_set(this)" type="button" name="set">Set</button><input type="text" name="name"/><button onclick="do_rename(this)" type="button" name="rename">Rename</button></form></td></tr></table></body></html>'
+	"acct_pres": '<html><body><table><tr class="acct"><td class="aid"></td><td class="name"></td><td class="balance"></td><td class="mod"><form class="block" method="POST" action="/mod"><input type="hidden" name="aid" value="$aid"/><button onclick="do_dock(this)" type="button" name="dock">Dock</button><input type="text" name="amt" value="1"/><button onclick="do_boost(this)" type="button" name="boost">Boost</button><button onclick="do_set(this)" type="button" name="set">Set</button></form></td></tr></table></body></html>'
 };
+
+// <input type="text" name="name"/><button onclick="do_rename(this)" type="button" name="rename">Rename</button>
 
 var parser = new DOMParser();
 
 var EXCHANGE_RATE = 0.5; // FSU to USD
+var RICH_DISABLED = true;
 
 function interp(s, values) {
 	for(prop in values) {
@@ -27,6 +30,7 @@ function html_quote(str, inner) {
 }
 
 function repl_special(match, sname, svalue) {
+	if(RICH_DISABLED) return match;
 	if(sname.toUpperCase() == "IMG") {
 		var parts = svalue.split(",", 2);
 		if(parts.length < 2) {
@@ -69,7 +73,7 @@ function safe_name(name) {
 	try {
 		name = html_quote(name);
 		// Special functions
-		if(location.pathname != "/lite") name = name.replace(/\[(\w+)=([^\]]*)\]/g, repl_special);
+		if(RICH_DISABLED || location.pathname != "/lite") name = name.replace(/\[(\w+)=([^\]]*)\]/g, repl_special);
 	} catch(err) {
 		name = '<span class="error">Error occured while producing this content</span>';
 	}
@@ -275,7 +279,12 @@ setTimeout(init, 100);
 body
 {
 	background-color: #c8ab6b;
-	font-size: 150%;
+	font-size: 100%;
+}
+
+.block
+{
+	display: block;
 }
 
 #accts tr:nth-child(2n+1)
@@ -283,17 +292,17 @@ body
 	background-color: #c0a467;
 }
 
-h1, h5, #accts
+h1, h4, h5, #accts
 {
 	width: 100%;
 }
 
 h1
 {
-	font-size: 400%;
+	font-size: 250%;
 }
 
-h1, h5, h6
+h1, h4, h5, h6
 {
 	margin: 0 0;
 	text-align: center;
@@ -303,20 +312,20 @@ h3
 {
 	width: 75%;
 	margin: 0 auto;
-	font-size: 200%;
+	font-size: 175%;
 	text-align: justify;
 	font-variant: small-caps;
 	font-stretch: ultra-expanded;
 }
 
-h5
+h4, h5
 {
-	font-size: 150%;
+	font-size: 125%;
 }
 
 h6
 {
-	font-size: 125%;
+	font-size: 100%;
 }
 
 .credit
@@ -333,6 +342,11 @@ h6
 .exr
 {
 	color: #000088;
+}
+
+.tagline
+{
+	color: #aa0044;
 }
 
 .error
@@ -364,6 +378,7 @@ h6
 .balance
 {
 	font-weight: bold;
+	font-size: 125%;
 }
 
 input[type="text"]
@@ -406,6 +421,7 @@ button[name="create"]
 	<body>
 		<h1>Mount Fsuvius</h1>
 		<h3>the <a href="http://web2.clarkson.edu/projects/cosi/sp2015/students/northug/winner.html">Open</a> <a href="https://github.com/COSI-Lab/fsuvius">Source</a> Bank<span style="width: 100%; height: 1px; display: inline-block; border-top: 1px solid #440000;">&nbsp;</span></h3>
+		<h4 class="tagline">The "<i>don't make me come over there</i>" edition</h4>
 		<h5>FSU Exchange Rate: <span class="exr">$<span id="exchrate">???</span> = 1 FSU</span></h5>
 		<table id="accts">
 			<tr><td></td>
