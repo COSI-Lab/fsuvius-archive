@@ -16,8 +16,16 @@ from pprint import pprint
 
 URL="http://fsuvius.cslabs.clarkson.edu"
 
+class FsuviusError(Exception):
+    @classmethod
+    def check(cls, result):
+        if 'error' in result:
+            raise cls(result['error']['code'], result['error']['reason'])
+
 def list_accounts():
-    acct_list = loads(urlopen(URL + "/get").read())["accounts"]
+    result = loads(urlopen(URL + "/get").read())
+    FsuviusError.check(result)
+    acct_list = result['accounts']
     hdr='{aid:<8}{name:30}{balance:10}'.format(aid='ID', name='NAME', balance='BALANCE')
     print hdr
     print '='*len(hdr)
@@ -25,12 +33,14 @@ def list_accounts():
         print '{u[aid]:<8}{u[name]:30}{u[balance]:10}'.format(u=acct)
 
 def dock_fsu(aid, num):
-    urlopen(URL + '/mod', urlencode({'aid': aid, 'amt': num, 'dock': True}))
+    result = loads(urlopen(URL + '/mod', urlencode({'aid': aid, 'amt': num, 'dock': True})).read())
+    FsuviusError.check(result)
     print("docked {} fsu from ID {}").format(num, aid)
     list_accounts()
 
 def add_fsu(aid, num):
-    urlopen(URL + '/mod', urlencode({'aid': aid, 'amt': num}))
+    result = loads(urlopen(URL + '/mod', urlencode({'aid': aid, 'amt': num}).read()))
+    FsuviusError.check(result)
     print("added {} fsu to ID {}").format(num, aid)
     list_accounts()
 
@@ -47,4 +57,5 @@ def do_thing():
         elif argv[1] == "add":
             add_fsu(argv[2], fsu)
 
-do_thing()
+if __name__ == '__main__':
+    do_thing()
