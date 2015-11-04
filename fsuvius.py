@@ -69,7 +69,7 @@ def mod_set():
 
 @app.route('/mv', methods=['POST', 'GET'])
 def mv():
-	return jsonify(error={'code': ERR.ACCESS, 'reason': 'Modification to this field is not allowed'})
+	# return jsonify(error={'code': ERR.ACCESS, 'reason': 'Modification to this field is not allowed'})
 	resp = check_priv()
 	if resp is not None:
 		return resp

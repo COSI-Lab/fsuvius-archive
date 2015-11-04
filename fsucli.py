@@ -39,9 +39,15 @@ def dock_fsu(aid, num):
     list_accounts()
 
 def add_fsu(aid, num):
-    result = loads(urlopen(URL + '/mod', urlencode({'aid': aid, 'amt': num}).read()))
+    result = loads(urlopen(URL + '/mod', urlencode({'aid': aid, 'amt': num})).read())
     FsuviusError.check(result)
     print("added {} fsu to ID {}").format(num, aid)
+    list_accounts()
+
+def rename(aid, name):
+    result = loads(urlopen(URL + '/mv', urlencode({'aid': aid, 'name': name})).read())
+    FsuviusError.check(result)
+    print("renamed ID {} to {}").format(aid, name)
     list_accounts()
 
 def do_thing():
@@ -56,6 +62,8 @@ def do_thing():
             dock_fsu(argv[2], fsu)
         elif argv[1] == "add":
             add_fsu(argv[2], fsu)
+        elif argv[1] == "rename":
+            rename(argv[2], fsu)
 
 if __name__ == '__main__':
     do_thing()
