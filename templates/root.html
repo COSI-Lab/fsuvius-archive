@@ -278,6 +278,8 @@ setTimeout(init, 100);
 
 body
 {
+	margin: 0;
+	padding: 0;
 	background-color: #c8ab6b;
 	font-size: 100%;
 }
@@ -326,6 +328,31 @@ h4, h5
 h6
 {
 	font-size: 100%;
+}
+
+#nav {
+	width: 100%;
+	position: absolute;
+	top: 0px;
+	font-size: 12px;
+	height: 40px;
+	border-bottom: 2px solid black;
+	background-color: rgba(255,255,255,0.2);
+}
+
+#nav ul {
+	list-style-type: none;
+}
+
+#nav ul li {
+	display: inline;
+	margin-right: 15px;
+}
+
+#nav ul li a {
+	color: black;
+	font-weight: bold;
+	text-decoration: none;
 }
 
 .credit
@@ -419,6 +446,21 @@ button[name="create"]
 		</style>
 	</head>
 	<body>
+		<div style="height:60px;"></div>
+		<div id="nav">
+			<ul>
+				<li><a href="http://cslabs.clarkson.edu/">CSLabs Homepage</a></li>
+				<li><a href="http://docs.cosi.clarkson.edu/">Docs</a></li>
+				<li><a href="http://print.cosi.clarkson.edu/">Print</a></li>
+				<li><a href="http://mirror.clarkson.edu/">Mirror</a></li>
+				<li><a href="http://fsuvius.cosi.clarkson.edu/">Fsuvius</a></li>
+				<li><a href="http://talks.cosi.clarkson.edu/">Talks</a></li>
+				<li><a href="http://cosi-lab.github.io/meeting-minutes/">Meeting Minutes</a></li>
+				<li><a href="http://cosi-lab.github.io/project-updates/">Project Updates</a></li>
+				<li><a href="http://moodle.cosi.clarkson.edu/">COSI Moodle</a></li>
+				<li><a href="http://sage.cosi.clarkson.edu/">Sage</a></li>
+			</ul>
+		</div>
 		<h1>Mount Fsuvius</h1>
 		<h3>the <a href="http://web2.clarkson.edu/projects/cosi/sp2015/students/northug/winner.html">Open</a> <a href="https://github.com/COSI-Lab/fsuvius">Source</a> Bank<span style="width: 100%; height: 1px; display: inline-block; border-top: 1px solid #440000;">&nbsp;</span></h3>
 		<h5>FSU Exchange Rate: <span class="exr">$<span id="exchrate">???</span> = 1 FSU</span></h5>
