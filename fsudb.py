@@ -1,7 +1,8 @@
 import sqlite3
 import time
+import os
 
-db = sqlite3.connect('fsu.db')
+db = sqlite3.connect(os.path.join(os.path.dirname(__file__), 'fsu.db'), check_same_thread = False)
 cur = db.cursor()
 
 class DBError(Exception):
