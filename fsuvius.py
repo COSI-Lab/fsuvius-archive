@@ -5,42 +5,67 @@ import pprint
 import socket
 import struct
 
-from fsudb import Account, Log
+from fsudb import Access, Account, Item, Transaction, Session
+from changes import Changes
 
-def aton(h):
-	return struct.unpack('>I', socket.inet_aton(h))[0]
+class ERR:
+    UNKNOWN=0
+    NEXIST=1
+    EXIST=2
+    DOMAIN=3
+    ACCESS=4
 
-def ntoa(i):
-	return socket.inet_ntoa(struct.pack('>I', i))
+class Network(object):
+    def __init__(self, netip, netmask):
+        self.netip = aton(netip)
+        self.netmask = aton(netmask)
 
-ALLOWED_SUBNET = aton('128.153.144.0')
-ALLOWED_MASK = aton('255.255.254.0')
+    def __contains__(self, val):
+        return aton(val) & self.netmask == self.netip
+
+ALLOWED_NETWORKS = [
+    Network('128.153.144.0', '255.255.254.0'),
+    Network('10.0.0.0', '255.0.0.0'),
+]
+
+def check_priv():
+    host = request.environ['REMOTE_ADDR']
+    for net in ALLOWED_NETWORKS:
+        if host in net:
+            return None
+    return jsonify(error={'code': ERR.ACCESS, 'reason': 'Not in an allowed subnet'})
 
 app = Flask('fsuvius')
 app.debug = True
+app.jinja_env.add_extension('pyjade.ext.jinja.PyJadeExtension')
 
-class ERR:
-	UNKNOWN=0
-	NEXIST=1
-	EXIST=2
-	DOMAIN=3
-	ACCESS=4
 
 def as_acctobj(acct):
-	return {'aid': acct.aid, 'name': acct.name, 'balance': acct.balance}
+    return {'aid': acct.rowid, 'name': acct.name, 'dispname', acct.dispname, 'balance': acct.balance}
+
+def as_change(type, acct):
+    return {'type': type, 'acct': as_acctobj(acct)}
 
 @app.route('/')
 def root():
-	return render_template('root.html')
+    return render_template('root.jade')
 
-@app.route('/lite')
-def lite():
-	return render_template('root.html')
-
-def check_priv():
-	host = aton(request.environ['REMOTE_ADDR'])
-	if request.method == 'POST' and ALLOWED_SUBNET != (ALLOWED_MASK & host):
-		return jsonify(error={'code': ERR.ACCESS, 'reason': 'Modification not allowed from outside the %s subnet'%(ntoa(ALLOWED_SUBNET),)})
+@app.route('/transact', methods=['POST', 'GET'])
+def transact():
+    resp = check_priv()
+    if resp is not None:
+        return resp
+    try:
+        acct = Account.GetOne(rowid=request.values.get('aid', -1, type=int))
+    except DBError:
+        return jsonify(error={'code': ERR.NEXIST, 'reason': 'Bad account ID'})
+    try:
+        item = Item.GetOne(rowid=request.values.get('iid', -1, type=int))
+    except DBError:
+        return jsonify(error={'code': ERR.NEXIST, 'reason': 'Bad item ID'})
+    amt = request.values.get('amt', 1, type=int)
+    credit = request.values.get('credit'
+    Transaction.Create(acct.rowid, item.iid, 
 
 @app.route('/mod', methods=['POST', 'GET'])
 @app.route('/set', methods=['POST', 'GET'])
@@ -105,3 +130,6 @@ def dbg_log():
 	resp = make_response('\n'.join([i[6] for i in Log.All()]))
 	resp.mimetype = 'text/plain'
 	return resp
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0')
