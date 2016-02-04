@@ -1,0 +1,4 @@
+SUBPROCESS FAILED!
+Return code {{retcode}}
+Error stream:
+{{stderr}}

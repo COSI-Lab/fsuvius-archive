@@ -4,8 +4,9 @@ import json
 import pprint
 import socket
 import struct
+import subprocess
 
-from fsudb import Account, Log
+from fsudb import Account, Log, DBError
 
 def aton(h):
 	return struct.unpack('>I', socket.inet_aton(h))[0]
@@ -104,4 +105,16 @@ def dbg_req():
 def dbg_log():
 	resp = make_response('\n'.join([i[6] for i in Log.All()]))
 	resp.mimetype = 'text/plain'
+	return resp
+
+@app.route('/dbg/graph', methods=['GET'])
+def dbg_graph():
+	proc = subprocess.Popen(['/usr/bin/python3', '/var/www/fsuvius/graph.py'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	sout, serr = proc.communicate(json.dumps(request.values.to_dict()))
+	if serr or proc.returncode:
+		resp = make_response(render_template('subprocess_fail.txt', retcode=proc.returncode, stderr=serr))
+		resp.mimetype='text/plain'
+	else:
+		resp = make_response(sout)
+		resp.mimetype = 'image/xvg+xml'
 	return resp
