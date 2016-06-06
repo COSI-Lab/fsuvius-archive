@@ -2,6 +2,9 @@
 <html>
 	<head>
 		<title>Mount Fsuvius</title>
+		<link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet' type='text/css'>
+		<script src="{{ url_for('static', filename='webcomponents.min.js') }}"></script>
+		<link rel="import" href="{{ url_for('static', filename='cosi-nav.html') }}">
 		<script type="text/javascript">
 var TEMPL = {
 	"acct_pres": '<html><body><table><tr class="acct"><td class="aid"></td><td class="name"></td><td class="balance"></td><td class="mod"><form class="block" method="POST" action="/mod"><input type="hidden" name="aid" value="$aid"/><button onclick="do_dock(this)" type="button" name="dock">Dock</button><input type="text" name="amt" value="1"/><button onclick="do_boost(this)" type="button" name="boost">Boost</button><button onclick="do_set(this)" type="button" name="set">Set</button></form></td></tr></table></body></html>'
@@ -278,6 +281,7 @@ setTimeout(init, 100);
 
 body
 {
+	font-family: "Open Sans";
 	margin: 0;
 	padding: 0;
 	background-color: #c8ab6b;
@@ -328,31 +332,6 @@ h4, h5
 h6
 {
 	font-size: 100%;
-}
-
-#nav {
-	width: 100%;
-	position: absolute;
-	top: 0px;
-	font-size: 12px;
-	height: 40px;
-	border-bottom: 2px solid black;
-	background-color: rgba(255,255,255,0.2);
-}
-
-#nav ul {
-	list-style-type: none;
-}
-
-#nav ul li {
-	display: inline;
-	margin-right: 15px;
-}
-
-#nav ul li a {
-	color: black;
-	font-weight: bold;
-	text-decoration: none;
 }
 
 .credit
@@ -446,24 +425,11 @@ button[name="create"]
 		</style>
 	</head>
 	<body>
-		<div style="height:60px;"></div>
-		<div id="nav">
-			<ul>
-				<li><a href="http://cslabs.clarkson.edu/">CSLabs Homepage</a></li>
-				<li><a href="http://docs.cosi.clarkson.edu/">Docs</a></li>
-				<li><a href="http://print.cosi.clarkson.edu/">Print</a></li>
-				<li><a href="http://mirror.clarkson.edu/">Mirror</a></li>
-				<li><a href="http://fsuvius.cosi.clarkson.edu/">Fsuvius</a></li>
-				<li><a href="http://talks.cosi.clarkson.edu/">Talks</a></li>
-				<li><a href="http://cosi-lab.github.io/meeting-minutes/">Meeting Minutes</a></li>
-				<li><a href="http://cosi-lab.github.io/project-updates/">Project Updates</a></li>
-				<li><a href="http://moodle.cosi.clarkson.edu/">COSI Moodle</a></li>
-				<li><a href="http://sage.cosi.clarkson.edu/">Sage</a></li>
-			</ul>
-		</div>
+		<cosi-nav></cosi-nav>
 		<h1>Mount Fsuvius</h1>
 		<h3>the <a href="http://web2.clarkson.edu/projects/cosi/sp2015/students/northug/winner.html">Open</a> <a href="https://github.com/COSI-Lab/fsuvius">Source</a> Bank<span style="width: 100%; height: 1px; display: inline-block; border-top: 1px solid #440000;">&nbsp;</span></h3>
 		<h5>FSU Exchange Rate: <span class="exr">$<span id="exchrate">???</span> = 1 FSU</span></h5>
+		<h6 id="sumline">Bank balance: <span id="sum">???</span> FSU ($<span id="sumusd">???</span>) <span id="sumsign"></span></h6>
 		<table id="accts">
 			<tr><td></td>
 				<td>
@@ -475,7 +441,6 @@ button[name="create"]
 			</tr>
 			<tr><th>ID</th><th>Name</th><th>Balance</th><th>Operations</th></tr>
 		</table>
-		<h6 id="sumline">Bank balance: <span id="sum">???</span> FSU ($<span id="sumusd">???</span>) <span id="sumsign"></span></h6>
 		<div id="errors"></div>
 	</body>
 </html>
