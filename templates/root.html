@@ -3,11 +3,11 @@
 	<head>
 		<title>Mount Fsuvius</title>
 		<link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet' type='text/css'>
-		<script src="{{ url_for('static', filename='webcomponents.min.js') }}"></script>
-		<link rel="import" href="{{ url_for('static', filename='cosi-nav.html') }}">
+		<link href='https://dubsdot.cosi.clarkson.edu/cosi-nav.css' rel='stylesheet' type='text/css'>
+		<script src="{{ url_for('static', filename='fetch.js') }}"></script>
 		<script type="text/javascript">
 var TEMPL = {
-	"acct_pres": '<html><body><table><tr class="acct"><td class="aid"></td><td class="name"></td><td class="balance"></td><td class="mod"><form class="block" method="POST" action="/mod"><input type="hidden" name="aid" value="$aid"/><button onclick="do_dock(this)" type="button" name="dock">Dock</button><input type="text" name="amt" value="1"/><button onclick="do_boost(this)" type="button" name="boost">Boost</button><button onclick="do_set(this)" type="button" name="set">Set</button></form></td></tr></table></body></html>'
+	"acct_pres": '<html><body><table><tr class="acct"><td class="aid"></td><td class="dispid"></td><td class="name"></td><td class="balance"></td><td class="mod"><form class="block" method="POST" action="/mod"><input type="hidden" name="aid" value="$aid"/><button onclick="do_dock(this)" type="button" name="dock">Dock</button><input type="text" name="amt" value="1"/><button onclick="do_boost(this)" type="button" name="boost">Boost</button><button onclick="do_set(this)" type="button" name="set">Set</button><input type="text" name="name"/><button onclick="do_rename(this)" type="button" name="rename">Rename</button></form></td></tr></table></body></html>'
 };
 
 // <input type="text" name="name"/><button onclick="do_rename(this)" type="button" name="rename">Rename</button>
@@ -15,7 +15,8 @@ var TEMPL = {
 var parser = new DOMParser();
 
 var EXCHANGE_RATE = 0.5; // FSU to USD
-var RICH_DISABLED = true;
+var RICH_DISABLED = false;
+var SHOW_HIDDEN = false;
 
 function interp(s, values) {
 	for(prop in values) {
@@ -72,13 +73,218 @@ function repl_special(match, sname, svalue) {
 	return match;
 }
 
+function parse_nonws_after(s, start) {
+	var c = s[start];
+	while(c == ' ' || c == '\t' || c == '\n' || c == '\b' || c == '\r' || c == '\v') {
+		start++;
+		c = s[start];
+	}
+	return start;
+}
+
+function parse_word(s, start) {
+	var buf = "";
+	for(var i = start; i < s.length; i++) {
+		var c = s[i];
+		switch(c) {
+			case '{':
+				if(i == start) {
+					return parse_braced_word(s, start + 1);
+				}
+			case '}':
+			case '[':
+			case ']':
+			case '%':
+			case '=':
+				return {word:buf, next:i};
+			case ' ':
+			case '\t':
+			case '\n':
+			case '\b':
+			case '\r':
+			case '\v':
+				return {word:buf, next:parse_nonws_after(s, i)};
+
+			default:
+				buf += c;
+		}
+	}
+	return {word:buf, next:s.length, eof:true};
+}
+
+function parse_braced_word(s, start) {
+	var buf = "";
+	var depth = 1;
+	for(var i = start; i < s.length; i++) {
+		var c = s[i];
+		switch(c) {
+			case '\\':
+				i++;
+				buf += s[i];
+				break;
+			case '{':
+				buf += c;
+				depth++;
+				break;
+			case '}':
+				depth--;
+				if(depth <= 0) {
+					i++;
+					return {expr:parse_expr(buf, 0), next:parse_nonws_after(s, i)};
+				}
+			default:
+				buf += c;
+		}
+	}
+	return {word:buf, next:s.length, eof:true};
+}
+
+function parse_expect(s, i, v) {
+	if(s[i] != v) {
+		throw new Error("parse failed, expecting " + v + " at " + i + ", found " + s[i]);
+	}
+}
+
+function force_word(expr) {
+	if(expr.expr) {
+		return {word:expr.expr.filter(function(e) { return e.word != undefined; }).map(function(e) { return e.word; }).join(" "), next:expr.next};
+	}
+	return expr;
+}
+
+function parse_attr(s, start) {
+	var wd = force_word(parse_word(s, start));
+	start = wd.next;
+	parse_expect(s, start, '=');
+	start++;
+	var wd2 = force_word(parse_word(s, start));
+	return {key:wd.word, val:wd2.word, next:wd2.next};
+}
+
+function parse_img(s, start) {
+	var buf = "";
+	for(var i = start; i < s.length; i++) {
+		var c = s[i];
+		switch(c) {
+			case '\\':
+				i++;
+				buf += s[i];
+				break;
+			case ']':
+				i++;
+				return {img:buf, next:parse_nonws_after(s, i)};
+			default:
+				buf += c;
+		}
+	}
+	return {img:buf, next:s.length, eof:true};
+}
+
+function parse_expr_atom(s, start) {
+	if(s[start] == '[') {
+		return parse_img(s, start + 1);
+	}
+	return parse_word(s, start);
+}
+
+function parse_expr(s, start) {
+	var parts = [];
+	while(start < s.length) {
+		var atom = parse_expr_atom(s, start);
+		start = atom.next;
+		while(s[start] == '%' || s[start] == '!') {
+			if(s[start] == '%') {
+				var attr = parse_attr(s, parse_nonws_after(s, start + 1));
+				atom = {attr:attr, atom:atom};
+				start = attr.next;
+			}
+			if(s[start] == '!') {
+				var nm = force_word(parse_word(s, parse_nonws_after(s, start + 1)));
+				atom = {name:nm.word, atom:atom};
+				start = nm.next;
+			}
+		}
+		parts.push(atom);
+	}
+	return parts;
+}
+
+function force_tag(obj) {
+	if(typeof obj == "string" || obj instanceof Array) {
+		return {tag:"span", content:obj, attrs:[]};
+	}
+	return obj;
+}
+
+function resolve_expr(node) {
+	if(node instanceof Array) {
+		return node.map(resolve_expr);
+	}
+	if(node.expr != undefined) {
+		return resolve_expr(node.expr);
+	}
+	if(node.name != undefined) {
+		var subnode = resolve_expr(node.atom);
+		return {tag:node.name, content:subnode, attrs:[]};
+	}
+	if(node.attr != undefined) {
+		var subnode = force_tag(resolve_expr(node.atom));
+		subnode.attrs.push(node.attr);
+		return subnode;
+	}
+	if(node.img != undefined) {
+		return {tag:"img", content:"", attrs:[{key:"src", val:node.img}, {key:"class", val:"name_img"}]};
+	}
+	if(node.word != undefined) {
+		return node.word;
+	}
+	throw new Error(node);
+}
+
+function merge_attrs(attrs) {
+	var i = 0;
+	while(i < attrs.length) {
+		if(attrs.filter(function(e) { return e.key == attrs[i].key; }).length > 1) {
+			attrs.splice(i, 1);
+		} else {
+			i++;
+		}
+	}
+}
+
+function convert_tags(obj) {
+	if(obj instanceof Array) {
+		return obj.map(convert_tags).join(" ");
+	}
+	if(typeof obj == "string") {
+		return obj;
+	}
+	merge_attrs(obj.attrs);
+	var ats = " ";
+	for(var i = 0; i < obj.attrs.length; i++) {
+		var at = obj.attrs[i];
+		ats += at.key + '="' + at.val + '" ';
+	}
+	ats = ats.substring(0, ats.length - 1);
+	return "<" + obj.tag + ats + ">" + convert_tags(obj.content) + "</" + obj.tag + ">";
+}
+
+function convert_special(s) {
+	var ex = parse_expr(s, 0);
+	var tag = resolve_expr(ex);
+	var html = convert_tags(tag);
+	return html;
+}
+
 function safe_name(name) {
 	try {
 		name = html_quote(name);
 		// Special functions
-		if(RICH_DISABLED || location.pathname != "/lite") name = name.replace(/\[(\w+)=([^\]]*)\]/g, repl_special);
+		if(RICH_DISABLED || location.pathname != "/lite") { //name = name.replace(/\[(\w+)=([^\]]*)\]/g, repl_special);
+			return convert_special(name);
+		}
 	} catch(err) {
-		name = '<span class="error">Error occured while producing this content</span>';
+		name = '<span class="error">Error occured while producing this content:' + err + '</span>';
 	}
 	return name;
 }
@@ -88,6 +294,9 @@ function update_accts(accts, full) {
 	aidset = {};
 	for(i=0; i<accts.length; i+=1) {
 		acct = accts[i];
+		if(acct.hidden && !SHOW_HIDDEN) {
+			continue;
+		}
 		aidset[acct.aid] = true;
 		found = false;
 		for(j=0; j<list.children.length; j+=1) {
@@ -96,6 +305,7 @@ function update_accts(accts, full) {
 			if(caid < acct.aid) continue;
 			if(caid == acct.aid) {
 				if(child.dataset.name != acct.name || child.dataset.balance != acct.balance) {
+					child.querySelector('.dispid').innerHTML = acct.dispid;
 					child.querySelector('.name').innerHTML = safe_name(acct.name);
 					child.querySelector('.balance').textContent = acct.balance;
 					child.dataset.name = acct.name;
@@ -152,10 +362,14 @@ function make_elem(acct) {
 	elem = document.adoptNode(elem);
 	elem.dataset.aid = acct.aid;
 	elem.querySelector('.aid').textContent = acct.aid;
+	elem.dataset.dispid = acct.dispid;
+	elem.querySelector('.dispid').textContent = acct.dispid;
 	elem.dataset.name = acct.name;
 	elem.querySelector('.name').innerHTML = safe_name(acct.name);
 	elem.dataset.balance = acct.balance;
 	elem.querySelector('.balance').textContent = acct.balance;
+	elem.dataset.dispid = acct.dispid;
+	elem.querySelector('.dispid').textContent = acct.dispid;
 	return elem;
 }
 
@@ -252,9 +466,122 @@ function do_rename(btn) {
 	xhr.send(fd);
 }
 
+function set_aids(chk) {
+	var elems = document.querySelectorAll(".aid");
+	for(var i = 0; i < elems.length; i++) {
+		var elem = elems[i];
+		if(chk.checked) {
+			elem.style.display = "initial";
+		} else {
+			elem.style.display = "none";
+		}
+	}
+}
+
+function do_filter(s) {
+	var re = new RegExp(s.value, "i");
+	var list = document.querySelector("#accts");
+	for(var i = 0; i < list.children.length; i++) {
+		var child = list.children[i];
+		if(child.dataset.name) {
+			if(!re.test(child.dataset.name)) {
+				child.style.display = "none";
+			} else {
+				child.style.display = "table-row";
+			}
+		}
+	}
+}
+
+function clear_filter(b) {
+	var elem = document.querySelector("#filter");
+	elem.value = "";
+	do_filter(elem);
+}
+
+function load_config() {
+	if(location.pathname == "/lite") return;
+	var lcss = localStorage.getItem("lcss");
+	var ljs = localStorage.getItem("ljs");
+	var elem;
+	if(typeof lcss == "string") {
+		elem = document.querySelector("#lcss");
+		elem.innerHTML = lcss;
+	}
+	if(typeof ljs == "string") {
+		elem = document.querySelector("#ljs");
+		elem.innerHTML = ljs;
+	}
+	elem = document.querySelector("#config form");
+	elem.lcss.value = lcss || "";
+	elem.ljs.value = ljs || "";
+}
+
+function show_config() {
+	var elem = document.querySelector("#config");
+	elem.style.display = "initial";
+	setTimeout(function() {elem.style.opacity = 1.0;}, 50);
+}
+
+function hide_config() {
+	var elem = document.querySelector("#config");
+	elem.style.opacity = 0.0;
+	var inner = function() {
+		elem.style.display = "none";
+		elem.removeEventListener("transitionend", inner, true);
+	};
+	elem.addEventListener("transitionend", inner, true);
+}
+
+function do_update_config(btn) {
+	var elem = document.querySelector("#lcss");
+	elem.innerHTML = btn.form.lcss.value;
+	elem = document.querySelector("#ljs");
+	elem.innerHTML = btn.form.ljs.value;
+}
+
+function do_save_config(btn) {
+	localStorage.setItem("lcss", btn.form.lcss.value);
+	localStorage.setItem("ljs", btn.form.ljs.value);
+	load_config();
+	hide_config();
+}
+
+var SHAKE_RAD = 5;
+function update_shakes() {
+	var elems = Array.prototype.slice.call(document.querySelectorAll(".shake"));
+	Array.prototype.push.apply(elems, 
+		Array.prototype.slice.call(document.querySelectorAll(".triggered"))
+	);
+	//console.log(elems);
+	for(var i = 0; i < elems.length; i++) {
+		var elem = elems[i];
+		elem.style.left = (2 * SHAKE_RAD * Math.random() - SHAKE_RAD) + "px";
+		elem.style.top = (2 * SHAKE_RAD * Math.random() - SHAKE_RAD) + "px";
+	}
+	requestAnimationFrame(update_shakes);
+}
+
+// http://stackoverflow.com/questions/6140632/how-to-handle-tab-in-textarea
+function handle_tab(e) {
+	if(e.keyCode == 9) {
+		var target = e.target;
+		var start = target.selectionStart, end = target.selectionEnd;
+		var value = target.value;
+
+		target.value = value.substring(0, start) + "\t" + value.substring(end);
+		target.selectionStart = target.selectionEnd = start + 1;
+		e.preventDefault();
+	}
+}
+
 function init() {
 	document.querySelector("#exchrate").textContent = EXCHANGE_RATE;
+	document.querySelector("#realids").checked = false;
+	document.querySelector("#filter").value = "";
+	load_config();
 	update_all();
+	requestAnimationFrame(update_shakes);
 }
 
 setInterval(update_all, 2000);
@@ -272,11 +599,21 @@ setTimeout(init, 100);
 	100% {color: #ff0000;}
 }
 
+.triggered {
+	color: red;
+	font-size: 125%;
+}
+
 .rainbow
 {
 	animation-name: rainbow;
 	animation-duration: 1s;
 	animation-iteration-count: infinite;
+}
+
+.shake, .triggered
+{
+	position: relative;
 }
 
 body
@@ -291,6 +628,51 @@ body
 .block
 {
 	display: block;
+}
+
+#config
+{
+	z-index: 1;
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	display: none;
+	opacity: 0;
+	transition: opacity 0.5s;
+}
+
+#config .controls
+{
+	display: flex;
+	position: absolute;
+	width: 100%;
+	height: 100%;
+}
+
+#config .controls form
+{
+	display: block;
+	background-color: #ddd;
+	border: 1px solid #000;
+	margin: auto;
+	padding: 5px 1em;
+}
+
+.controls textarea
+{
+	width: 80ch;
+	height: 25em;
+}
+
+.shade
+{
+	background-color: #000;
+	opacity: 0.5;
+	position: absolute;
+	width: 100%;
+	height: 100%;
 }
 
 #accts tr:nth-child(2n+1)
@@ -374,6 +756,14 @@ h6
 	font-size: 75%;
 	font-style: italic;
 	color: #2222aa;
+	display: none;
+}
+
+.dispid
+{
+	font-size: 75%;
+	font-style: italic;
+	color: #a22;
 }
 
 .name
@@ -422,16 +812,98 @@ button[name="create"]
 {
 	background-color: #000000;
 }
+
+button[name="clear"]
+{
+	background-color: #440;
+}
+
+button[name="update"]
+{
+	background-color: #266;
+}
+
+button[name="save"]
+{
+	background-color: #2a2;
+}
+
+button[name="close"]
+{
+	background-color: #222;
+}
+
+button[name="showcfg"]
+{
+	background-color: #266;
+}
+
+.italic
+{
+	font-style: italic;
+}
+
+.big
+{
+	font-size: 175%;
+}
+:root {
+	--background-color: rgba(255,255,255,0.2);
+	--text-color: black;
+}
+cosi-nav {
+	positon: absolute;
+	top: 0;
+	left: 0;
+}
+.title-div {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	justify-content: center;
+}
+
+.name_img {
+	height: 48px;
+	max-width: 256px;
+}
 		</style>
 	</head>
 	<body>
+		<style type="text/css" id="lcss"></style>
+		<script type="text/javascript" id="ljs"></script>
 		<cosi-nav></cosi-nav>
-		<h1>Mount Fsuvius</h1>
+		<div id="config">
+			<div class="shade">&nbsp;</div>
+			<div class="controls">
+				<form action="?">
+					<table>
+						<tr><th>Local CSS</th><th>Local JavaScript</th></tr>
+						<tr>
+							<td><textarea name="lcss" onkeydown="handle_tab(event)"></textarea></td>
+							<td><textarea name="ljs" onkeydown="handle_tab(event)"></textarea></td>
+						</tr>
+					</table>
+					<button type="button" name="update" onclick="do_update_config(this)">Update</button>
+					<button type="button" name="save" onclick="do_save_config(this)">Save</button>
+					<button type="button" name="close" onclick="hide_config()">Close</button>
+				</form>
+			</div>
+		</div>
+		<div class="title-div">
+			<h1>Mount Fsuvius</h1>
+		</div>
 		<h3>the <a href="http://web2.clarkson.edu/projects/cosi/sp2015/students/northug/winner.html">Open</a> <a href="https://github.com/COSI-Lab/fsuvius">Source</a> Bank<span style="width: 100%; height: 1px; display: inline-block; border-top: 1px solid #440000;">&nbsp;</span></h3>
+		<marquee><h5 class="rainbow italic big">The <span style="font-size: 50%;">Please-Don't-Rename-Other-Entries-Because-That's-How-Rename-Got-Taken-Away-Last-Time</span> Edition!</h5></marquee>
+		<marquee><h5 class="rainbow italic big shake">Please avoid going below -20 FSU!</h5></marquee>
 		<h5>FSU Exchange Rate: <span class="exr">$<span id="exchrate">???</span> = 1 FSU</span></h5>
 		<h6 id="sumline">Bank balance: <span id="sum">???</span> FSU ($<span id="sumusd">???</span>) <span id="sumsign"></span></h6>
+		<div>
+			<label>Search: <input type="text" name="filter" id="filter" oninput="do_filter(this);"/><button onclick="clear_filter(this)" type="button" name="clear">Clear</button></label>
+			<button style="float: right;" type="button" name="showcfg" onclick="show_config()">Edit Local Config</button>
+		</div>
 		<table id="accts">
-			<tr><td></td>
+			<tr><td class="aid"></td><td></td>
 				<td>
 					<form method="POST" action="/new">
 						<input type="text" name="name"/><button onclick="do_create(this)" type="button" name="create">Create</button>
@@ -439,8 +911,15 @@ button[name="create"]
 				</td>
 				<td></td><td></td>
 			</tr>
-			<tr><th>ID</th><th>Name</th><th>Balance</th><th>Operations</th></tr>
+			<tr><td class="aid"></td><td></td>
+				<td>
+					<label><input name="realids" id="realids" type="checkbox" onclick="set_aids(this)"/>Show real IDs</label>
+				</td>
+				<td></td><td></td>
+			</tr>
+			<tr><th class="aid">ID</th><th>DispID</th><th>Name</th><th>Balance</th><th>Operations</th></tr>
 		</table>
 		<div id="errors"></div>
+		<script src="{{ url_for('static', filename='cosi-nav.js') }}" defer></script>
 	</body>
 </html>

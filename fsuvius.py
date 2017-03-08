@@ -28,7 +28,7 @@ class ERR:
 	ACCESS=4
 
 def as_acctobj(acct):
-	return {'aid': acct.aid, 'name': acct.name, 'balance': acct.balance}
+	return {'aid': acct.aid, 'name': acct.name, 'balance': acct.balance, 'dispid': acct.dispid, 'hidden': acct.hidden}
 
 @app.route('/')
 def root():
