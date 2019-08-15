@@ -87,6 +87,10 @@ function parse_word(s, start) {
 	for(var i = start; i < s.length; i++) {
 		var c = s[i];
 		switch(c) {
+			case '\\':
+				i++;
+				buf += s[i];
+				break;
 			case '{':
 				if(i == start) {
 					return parse_braced_word(s, start + 1);
@@ -95,7 +99,15 @@ function parse_word(s, start) {
 			case '[':
 			case ']':
 			case '%':
+			case '!':
 			case '=':
+				/* We assume that we should treat these special characters as a boundary.
+				However, if this is the first character, it's safe to assume that this
+				character wasn't consumed by some higher-level parser, so we'll just
+				return it instead. */
+				if(i == start) {
+					return {word:c, next:parse_nonws_after(s, i + 1)};
+				}
 				return {word:buf, next:i};
 			case ' ':
 			case '\t':
@@ -118,10 +130,6 @@ function parse_braced_word(s, start) {
 	for(var i = start; i < s.length; i++) {
 		var c = s[i];
 		switch(c) {
-			case '\\':
-				i++;
-				buf += s[i];
-				break;
 			case '{':
 				buf += c;
 				depth++;
@@ -199,9 +207,9 @@ function parse_expr(s, start) {
 				start = attr.next;
 			}
 			if(s[start] == '!') {
-				var nm = force_word(parse_word(s, parse_nonws_after(s, start + 1)));
-				atom = {name:nm.word, atom:atom};
-				start = nm.next;
+				var next = parse_word(s, parse_nonws_after(s, start + 1));
+				atom = {name:force_word(atom).word, atom:next};
+				start = next.next;
 			}
 		}
 		parts.push(atom);
@@ -270,21 +278,21 @@ function convert_tags(obj) {
 }
 
 function convert_special(s) {
-	var ex = parse_expr(s, 0);
-	var tag = resolve_expr(ex);
-	var html = convert_tags(tag);
-	return html;
+	try {
+		var ex = parse_expr(s, 0);
+		var tag = resolve_expr(ex);
+		var html = convert_tags(tag);
+		return html;
+	} catch(err) {
+		return '<div class="error">Error occured while producing this content:' + err + '</div>';
+	}
 }
 
 function safe_name(name) {
-	try {
-		name = html_quote(name);
-		// Special functions
-		if(RICH_DISABLED || location.pathname != "/lite") { //name = name.replace(/\[(\w+)=([^\]]*)\]/g, repl_special);
-			return convert_special(name);
-		}
-	} catch(err) {
-		name = '<span class="error">Error occured while producing this content:' + err + '</span>';
+	name = html_quote(name);
+	// Special functions
+	if(RICH_DISABLED || location.pathname != "/lite") { //name = name.replace(/\[(\w+)=([^\]]*)\]/g, repl_special);
+		name = convert_special(name);
 	}
 	return name;
 }
@@ -500,10 +508,12 @@ function clear_filter(b) {
 }
 
 function load_config() {
-	if(location.pathname == "/lite") return;
 	var lcss = localStorage.getItem("lcss");
 	var ljs = localStorage.getItem("ljs");
-	var elem;
+	var elem = document.querySelector("#config form");
+	elem.lcss.value = lcss || "";
+	elem.ljs.value = ljs || "";
+	if(location.pathname == "/lite") return;
 	if(typeof lcss == "string") {
 		elem = document.querySelector("#lcss");
 		elem.innerHTML = lcss;
@@ -512,9 +522,6 @@ function load_config() {
 		elem = document.querySelector("#ljs");
 		elem.innerHTML = ljs;
 	}
-	elem = document.querySelector("#config form");
-	elem.lcss.value = lcss || "";
-	elem.ljs.value = ljs || "";
 }
 
 function show_config() {
@@ -545,6 +552,10 @@ function do_save_config(btn) {
 	localStorage.setItem("ljs", btn.form.ljs.value);
 	load_config();
 	hide_config();
+}
+
+function do_update_testname(btn) {
+	document.querySelector("#testnameout").innerHTML = convert_special(btn.form.testname.value);
 }
 
 var SHAKE_RAD = 5;
@@ -621,8 +632,10 @@ body
 	font-family: "Open Sans";
 	margin: 0;
 	padding: 0;
-	background-color: #c8ab6b;
+	background-color: #f92;
 	font-size: 100%;
+	color: #fff;
+	text-shadow: 1px 1px 1px #420;
 }
 
 .block
@@ -677,7 +690,7 @@ body
 
 #accts tr:nth-child(2n+1)
 {
-	background-color: #c0a467;
+	background-color: #f82;
 }
 
 h1, h4, h5, #accts
@@ -718,18 +731,18 @@ h6
 
 .credit
 {
-	color: #226622;
+	color: #370;
 }
 
 .debit
 {
-	color: #662222;
+	color: #730;
 	font-weight: bold;
 }
 
 .exr
 {
-	color: #000088;
+	color: #630;
 }
 
 .tagline
@@ -867,6 +880,26 @@ cosi-nav {
 	height: 48px;
 	max-width: 256px;
 }
+
+#orange {
+	color: #f82;
+}
+
+#vanilla {
+	color: #fff;
+}
+
+#orange, #vanilla {
+	font-size: 150%;
+	font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+}
+
+#bubbles {
+	display: inline-block;
+	background-image: url(/static/bubbles.gif);
+	background-size: 250px;
+	padding: 10px;
+}
 		</style>
 	</head>
 	<body>
@@ -887,6 +920,13 @@ cosi-nav {
 					<button type="button" name="update" onclick="do_update_config(this)">Update</button>
 					<button type="button" name="save" onclick="do_save_config(this)">Save</button>
 					<button type="button" name="close" onclick="hide_config()">Close</button>
+					<table>
+						<tr><th colspan="2">Name Designer</th></tr>
+						<tr>
+							<td><textarea name="testname" onkeyup="do_update_testname(this)"></textarea></td>
+							<td id="testnameout" class="name"></td>
+						</tr>
+					</table>
 				</form>
 			</div>
 		</div>
@@ -894,7 +934,7 @@ cosi-nav {
 			<h1>Mount Fsuvius</h1>
 		</div>
 		<h3>the <a href="http://web2.clarkson.edu/projects/cosi/sp2015/students/northug/winner.html">Open</a> <a href="https://github.com/COSI-Lab/fsuvius">Source</a> Bank<span style="width: 100%; height: 1px; display: inline-block; border-top: 1px solid #440000;">&nbsp;</span></h3>
-		<marquee><h5 class="rainbow italic big">The <span style="font-size: 50%;">Please-Don't-Rename-Other-Entries-Because-That's-How-Rename-Got-Taken-Away-Last-Time</span> Edition!</h5></marquee>
+		<marquee><h5 class="rainbow italic big">The <div id="bubbles"><span id="orange">Orange</span> <span id="vanilla">Vanilla</span></div> Edition!</h5></marquee>
 		<marquee><h5 class="rainbow italic big shake">Please avoid going below -20 FSU!</h5></marquee>
 		<h5>FSU Exchange Rate: <span class="exr">$<span id="exchrate">???</span> = 1 FSU</span></h5>
 		<h6 id="sumline">Bank balance: <span id="sum">???</span> FSU ($<span id="sumusd">???</span>) <span id="sumsign"></span></h6>

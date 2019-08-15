@@ -17,18 +17,18 @@ def tex_escape(text):
 	"""
 	conv = {
 		'&': r'\&',
-		'%': r'\%',
+		'%': r'',
 		'$': r'\$',
 		'#': r'\#',
 		'_': r'\_',
-		'{': r'\{',
-		'}': r'\}',
 		'~': r'\textasciitilde{}',
 		'^': r'\^{}',
 		'<': r'\textless',
 		'>': r'\textgreater',
 	}
-	text = text.replace('\\', r'\textbackslash{}')  # First
+	text = text.replace('\\', r'\char`\\')  # First, because this is an escape...
+	text = text.replace('{', r'\char`\{')  # Second, because these are grouping characters...
+	text = text.replace('}', r'\char`\}')
 	for k, v in conv.items():
 		text = text.replace(k, v)
 	for char in set([char for char in text if ord(char) > 127]):
@@ -46,6 +46,8 @@ class graph_axis_time:
 def clamp(x, l, h):
 	if x is None:
 		return 0
+	if isinstance(x, str):
+		raise TypeError('Wtf? x = %r'%(x,))
 	return max(min(x, h), l)
 
 PARAM_TYPES = {
@@ -55,7 +57,7 @@ PARAM_TYPES = {
 	'min': float,
 	'max': float,
 }
-def render(logset, width=100, only_current=True, plot_current=True, low=-500, high=500, before='', since='', accounts=''):
+def render(logset, width=100, only_current=True, plot_current=True, plot_zero=True, low=-500, high=500, before='', since='', accounts=''):
 	all_accts = fsudb.Account.All()
 	if accounts:
 		aids = [int(i) for i in accounts.split(',')]
@@ -72,6 +74,8 @@ def render(logset, width=100, only_current=True, plot_current=True, low=-500, hi
 			if not values:
 				continue
 			lastval = values[-1]
+			if isinstance(lastval, str):
+				lastval = 0  # WTF
 			logset.append([time.time(), 'renderer', acct.aid, 'balance', lastval, acct.balance, 'TEMPORARY entry to plot correctly'])
 	series = []
 	accts = set([i[2] for i in logset if i[3] == 'balance'])
@@ -87,6 +91,8 @@ def render(logset, width=100, only_current=True, plot_current=True, low=-500, hi
 		for entry in logset:
 			if entry[2] != acct or entry[3] != 'balance':
 				continue
+			if isinstance(entry[4], str) or isinstance(entry[5], str):
+				raise TypeError('WTF? %r'%(entry,))
 			points.extend([(entry[0], clamp(entry[4], low, high)), (entry[0], clamp(entry[5], low, high))])
 		series.append(graph.data.points(points, x=1, y=2, title=('Account %d (%s)'%(acct, tex_escape(name)))))
 	g = graph.graphxy(width=width, x=graph.axis.lin(texter=graph_axis_time()), key=graph.key.key(pos='br', dist=0.1))
@@ -96,6 +102,11 @@ def render(logset, width=100, only_current=True, plot_current=True, low=-500, hi
 		actual_min = max(min(all_values), low)
 		actual_max = min(max(all_values), high)
 		g.plot(graph.data.values(x=[time.time(), time.time()], y=[actual_min, actual_max], title=time.strftime(ISO_TIME)), [graph.style.line()])
+	if plot_zero:
+		all_times = [i[0] for i in logset if i[3] == 'balance' and i[0] is not None]
+		actual_min = min(all_times)
+		actual_max = max(all_times)
+		g.plot(graph.data.values(x=[actual_min, actual_max], y=[0.0, 0.0], title='Y=0.0'), [graph.style.line()])
 	output = StringIO()
 	g.writeSVGfile(output)
 	return output
