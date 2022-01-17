@@ -28,7 +28,7 @@ class ERR:
 	ACCESS=4
 
 def as_acctobj(acct):
-	return {'aid': acct.aid, 'name': acct.name, 'balance': acct.balance, 'dispid': acct.dispid, 'hidden': acct.hidden}
+	return {'aid': acct.aid, 'name': acct.name, 'balance': acct.balance, 'hidden': acct.hidden}
 
 @app.route('/')
 def root():
@@ -80,7 +80,7 @@ def mv():
 		return jsonify(error={'code': ERR.NEXIST, 'reason': 'Bad user ID'})
 	acct.name = request.values['name']
 	acct.Update(src = request.environ['REMOTE_ADDR'])
-	return jsonify(accoutns=[as_acctobj(acct)])
+	return jsonify(accounts=[as_acctobj(acct)])
 
 @app.route('/new', methods=['POST', 'GET'])
 def new():

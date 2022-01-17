@@ -34,29 +34,25 @@ class Log(object):
 		return cur.fetchall()
 
 class Account(object):
-	def __init__(self, aid, name, balance, dispid=None, hidden=None):
+	def __init__(self, aid, name, balance, hidden=None):
 		self.aid = aid
 		self.name = name
 		self.balance = balance
-		self.dispid = dispid
 		self.hidden = hidden
 		self._aid = aid
 		self._name = name
 		self._balance = balance
-		self._dispid = dispid
 		self._hidden = hidden
-		if dispid is None:
-			self.dispid = aid
 		if hidden is None:
 			self.hidden = 0
 	@classmethod
 	def FromID(cls, aid):
-		cur.execute('SELECT aid, name, balance, dispid, hidden FROM accounts WHERE aid=?', (aid,))
+		cur.execute('SELECT aid, name, balance, hidden FROM accounts WHERE aid=?', (aid,))
 		return _instantiate(cls, cur.fetchall(), 'aid', aid)
 	@classmethod
 	def All(cls):
 		ret = []
-		for row in cur.execute('SELECT aid, name, balance, dispid, hidden FROM accounts'):
+		for row in cur.execute('SELECT aid, name, balance, hidden FROM accounts ORDER BY aid DESC'):
 			ret.append(cls(*row))
 		return ret
 	@classmethod
@@ -66,14 +62,14 @@ class Account(object):
 		db.commit()
 		return cls(cur.lastrowid, name, balance)
 	def Update(self, src=None):
-		for attr in ('aid', 'name', 'balance', 'dispid', 'hidden'):
+		for attr in ('aid', 'name', 'balance', 'hidden'):
 			if getattr(self, attr) != getattr(self, '_'+attr):
 				Log.Log(src, self, attr, getattr(self, '_'+attr), getattr(self, attr), '%r: %r changed %r %s from %r to %r'%(time.time(), src, self, attr, unicode(getattr(self, '_'+attr)).encode('utf8', 'replace'), unicode(getattr(self, attr)).encode('utf8', 'replace')))
-		cur.execute('UPDATE accounts SET name=?, balance=?, dispid=?, hidden=? WHERE aid=?', (self.name, self.balance, self.dispid, self.hidden, self.aid))
+		cur.execute('UPDATE accounts SET name=?, balance=?, hidden=? WHERE aid=?', (self.name, self.balance, self.hidden, self.aid))
 		db.commit()
 	def Delete(self, src=None):
 		cur.execute('DELETE FROM accounts WHERE aid=?', (self.aid,))
 		Log.Log(src, self, 'aid', self.aid, None, '%r: %r deleted %r'%(time.time(), src, self))
 		db.commit()
 	def __repr__(self):
-		return '<Account %s (%d)"%s" %s =%f>'%(self.aid, self.dispid, self.name.encode('utf8', 'replace'), '(hidden)' if self.hidden else 0, self.balance)
+		return '<Account %s "%s" %s =%f>'%(self.aid, self.name.encode('utf8', 'replace'), '(hidden)' if self.hidden else 0, self.balance)

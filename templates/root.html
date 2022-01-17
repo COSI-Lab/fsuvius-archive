@@ -7,7 +7,7 @@
 		<script src="{{ url_for('static', filename='fetch.js') }}"></script>
 		<script type="text/javascript">
 var TEMPL = {
-	"acct_pres": '<html><body><table><tr class="acct"><td class="aid"></td><td class="dispid"></td><td class="name"></td><td class="balance"></td><td class="mod"><form class="block" method="POST" action="/mod"><input type="hidden" name="aid" value="$aid"/><button onclick="do_dock(this)" type="button" name="dock">Dock</button><input type="text" name="amt" value="1"/><button onclick="do_boost(this)" type="button" name="boost">Boost</button><button onclick="do_set(this)" type="button" name="set">Set</button><input type="text" name="name"/><button onclick="do_rename(this)" type="button" name="rename">Rename</button></form></td></tr></table></body></html>'
+	"acct_pres": '<html><body><table><tr class="acct"><td class="aid"></td><td class="name"></td><td class="balance"></td><td class="mod"><form class="block" method="POST" action="/mod"><input type="hidden" name="aid" value="$aid"/><button onclick="do_dock(this)" type="button" name="dock">Dock</button><input type="text" name="amt" value="1"/><button onclick="do_boost(this)" type="button" name="boost">Boost</button><button onclick="do_set(this)" type="button" name="set">Set</button><input type="text" name="name"/><button onclick="do_rename(this)" type="button" name="rename">Rename</button></form></td></tr></table></body></html>'
 };
 
 // <input type="text" name="name"/><button onclick="do_rename(this)" type="button" name="rename">Rename</button>
@@ -310,10 +310,9 @@ function update_accts(accts, full) {
 		for(j=0; j<list.children.length; j+=1) {
 			child = list.children[j];
 			caid = parseInt(child.dataset.aid, 10);
-			if(caid < acct.aid) continue;
+			if(caid > acct.aid) continue;
 			if(caid == acct.aid) {
 				if(child.dataset.name != acct.name || child.dataset.balance != acct.balance) {
-					child.querySelector('.dispid').innerHTML = acct.dispid;
 					child.querySelector('.name').innerHTML = safe_name(acct.name);
 					child.querySelector('.balance').textContent = acct.balance;
 					child.dataset.name = acct.name;
@@ -370,14 +369,10 @@ function make_elem(acct) {
 	elem = document.adoptNode(elem);
 	elem.dataset.aid = acct.aid;
 	elem.querySelector('.aid').textContent = acct.aid;
-	elem.dataset.dispid = acct.dispid;
-	elem.querySelector('.dispid').textContent = acct.dispid;
 	elem.dataset.name = acct.name;
 	elem.querySelector('.name').innerHTML = safe_name(acct.name);
 	elem.dataset.balance = acct.balance;
 	elem.querySelector('.balance').textContent = acct.balance;
-	elem.dataset.dispid = acct.dispid;
-	elem.querySelector('.dispid').textContent = acct.dispid;
 	return elem;
 }
 
@@ -622,6 +617,30 @@ setTimeout(init, 100);
 	animation-iteration-count: infinite;
 }
 
+@keyframes updown {
+	0% { top: -100%; }
+	100% { top: 100%; }
+}
+
+.updown {
+	position: relative;
+	animation-name: updown;
+	animation-duration: 0.25s;
+	animation-iteration-count: infinite;
+	/* animation-direction: alternate; */
+}
+
+@keyframes rotate {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(359deg); }
+}
+
+.spin {
+	animation-name: rotate;
+	animation-duration: 0.7s;
+	animation-iteration-count: infinite;
+}
+
 .shake, .triggered
 {
 	position: relative;
@@ -632,10 +651,20 @@ body
 	font-family: "Open Sans";
 	margin: 0;
 	padding: 0;
-	background-color: #f92;
+	background-color: #4f331a /*#f92*/ /*#f00*/;
 	font-size: 100%;
-	color: #fff;
-	text-shadow: 1px 1px 1px #420;
+	color: #ffd1d1 /*#fff*/ /*#00f*/;
+	text-shadow: 1px 1px 1px #420 /*#7ff*/;
+}
+
+a
+{
+	color: #e02121;
+}
+
+a:visited
+{
+	color: #e08f8f;
 }
 
 .block
@@ -667,8 +696,8 @@ body
 #config .controls form
 {
 	display: block;
-	background-color: #ddd;
-	border: 1px solid #000;
+	background-color: #ddd /*#0ff*/;
+	border: 1px solid #000 /*#f70*/;
 	margin: auto;
 	padding: 5px 1em;
 }
@@ -690,7 +719,7 @@ body
 
 #accts tr:nth-child(2n+1)
 {
-	background-color: #f82;
+	background-color: #664222 /*#f82*/ /*#0f0*/;
 }
 
 h1, h4, h5, #accts
@@ -731,18 +760,18 @@ h6
 
 .credit
 {
-	color: #370;
+	color: #370 /*#7f7*/;
 }
 
 .debit
 {
-	color: #730;
+	color: #730 /*#f77*/;
 	font-weight: bold;
 }
 
 .exr
 {
-	color: #630;
+	color: #e02121 /*#630*/ /*#ff0*/;
 }
 
 .tagline
@@ -769,14 +798,6 @@ h6
 	font-size: 75%;
 	font-style: italic;
 	color: #2222aa;
-	display: none;
-}
-
-.dispid
-{
-	font-size: 75%;
-	font-style: italic;
-	color: #a22;
 }
 
 .name
@@ -889,7 +910,15 @@ cosi-nav {
 	color: #fff;
 }
 
-#orange, #vanilla {
+#cherry {
+	color: #e02121;
+}
+
+#pepsi {
+	color: #421f00;
+}
+
+#orange, #vanilla, #cherry, #pepsi {
 	font-size: 150%;
 	font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
 }
@@ -900,6 +929,7 @@ cosi-nav {
 	background-size: 250px;
 	padding: 10px;
 }
+
 		</style>
 	</head>
 	<body>
@@ -934,8 +964,11 @@ cosi-nav {
 			<h1>Mount Fsuvius</h1>
 		</div>
 		<h3>the <a href="http://web2.clarkson.edu/projects/cosi/sp2015/students/northug/winner.html">Open</a> <a href="https://github.com/COSI-Lab/fsuvius">Source</a> Bank<span style="width: 100%; height: 1px; display: inline-block; border-top: 1px solid #440000;">&nbsp;</span></h3>
+		<marquee><h5 class="rainbow italic big">The <div id="bubbles"><span id="cherry">Cherry</span> <span id="pepsi">Pepsi</span></div> Edition</h5></marquee>
+		<!--
 		<marquee><h5 class="rainbow italic big">The <div id="bubbles"><span id="orange">Orange</span> <span id="vanilla">Vanilla</span></div> Edition!</h5></marquee>
-		<marquee><h5 class="rainbow italic big shake">Please avoid going below -20 FSU!</h5></marquee>
+		<marquee><h5 class="rainbow italic big shake">SLIM JIMS ARE <span class="updown banned">BANNED</span></h5></marquee>
+		-->
 		<h5>FSU Exchange Rate: <span class="exr">$<span id="exchrate">???</span> = 1 FSU</span></h5>
 		<h6 id="sumline">Bank balance: <span id="sum">???</span> FSU ($<span id="sumusd">???</span>) <span id="sumsign"></span></h6>
 		<div>
@@ -943,7 +976,7 @@ cosi-nav {
 			<button style="float: right;" type="button" name="showcfg" onclick="show_config()">Edit Local Config</button>
 		</div>
 		<table id="accts">
-			<tr><td class="aid"></td><td></td>
+			<tr><td class="aid"></td>
 				<td>
 					<form method="POST" action="/new">
 						<input type="text" name="name"/><button onclick="do_create(this)" type="button" name="create">Create</button>
@@ -951,13 +984,7 @@ cosi-nav {
 				</td>
 				<td></td><td></td>
 			</tr>
-			<tr><td class="aid"></td><td></td>
-				<td>
-					<label><input name="realids" id="realids" type="checkbox" onclick="set_aids(this)"/>Show real IDs</label>
-				</td>
-				<td></td><td></td>
-			</tr>
-			<tr><th class="aid">ID</th><th>DispID</th><th>Name</th><th>Balance</th><th>Operations</th></tr>
+			<tr><th class="aid">ID</th><th>Name</th><th>Balance</th><th>Operations</th></tr>
 		</table>
 		<div id="errors"></div>
 		<script src="{{ url_for('static', filename='cosi-nav.js') }}" defer></script>
